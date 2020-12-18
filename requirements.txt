@@ -8,10 +8,11 @@ seaborn==0.11.0
 geopandas==0.8.1
 contextily==1.0.0
 mapclassify==2.3.0
+jupyter
 dill
 pygeos
 descartes
-ghp-import
-jupyter-book
+#ghp-import
+#jupyter-book
 ipywidgets
 ipympl
