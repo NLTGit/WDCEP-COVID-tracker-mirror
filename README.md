@@ -1,4 +1,4 @@
 # WDCEP-COVID-tracker-mirror
 demo repo for WDCEP
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://gesis.mybinder.org/binder/v2/gh/NLTGit/WDCEP-COVID-tracker-mirror/ad3305dc92e387708b2c3ab24ec526e60db2e290)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://notebooks.gesis.org/binder/jupyter/user/nltgit-wdcep-co--tracker-mirror-o3wjtple/notebooks/tracker/notebooks/tracker_v2.ipynb)
