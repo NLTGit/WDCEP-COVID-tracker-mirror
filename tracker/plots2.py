@@ -1,14 +1,8 @@
-from tracker.config import PLOT_DIR
-import pandas as pd
-from collections import Counter
-import contextily as ctx
+import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime, date
-from matplotlib import gridspec
-from pathlib import Path
 import ipywidgets as widgets
 from tracker.dataprep import ot_ts_prep, get_opentable_all_cities
+from sklearn.cluster import KMeans
 
 OTDATA = get_opentable_all_cities()
 
@@ -29,12 +23,12 @@ def ot_dc_usa_all(df=OTDATA,
     plt.legend()
     plt.title(title, fontsize=20)
 
-out = widgets.Output()
+outcity = widgets.Output()
 def select_plot(locations,
                 df=OTDATA,
                 window=7,
                 title='Open Table seated diner change year-over-year (%)'):
-    with out:
+    with outcity:
         fig, ax = plt.subplots(1, figsize=(15,5))
         X = ot_ts_prep(df.loc[locations,:], window=window)
         for col in X:
@@ -43,7 +37,7 @@ def select_plot(locations,
         ax.set_xlabel("Month", fontsize=20)
         plt.legend()
         plt.title(title, fontsize=20)
-        out.clear_output()
+        outcity.clear_output()
         plt.show()
 
 city_widget = widgets.SelectMultiple(
@@ -57,86 +51,60 @@ def on_value_change(change):
 
 city_widget.observe(on_value_change, 'value')
 
+def cluster_analysis(clustermodel=KMeans,
+                     seated_data=OTDATA,
+                     window=7,
+                     n_clusters=8,
+                     random_state=32,
+                     **clusterkwargs):
 
-def plot_clusters(data):
-    ncols = 1
-    nrows = round(data["labels"].nunique() / ncols)
-    gs = gridspec.GridSpec(nrows, ncols)
-    fig = plt.figure(figsize=(15, 7 * nrows))
-    for i, clust in enumerate(sorted(data["labels"].unique())):
-        X = data.loc[data["labels"] == clust, :].drop("labels", axis=1)
-        ax = fig.add_subplot(gs[i])
-        X.T.plot(color="gray", alpha=0.3, ax=ax)
-        X.mean().plot(color="steelblue", label="cluster mean", ax=ax)
-        data.drop("labels", axis=1).mean().plot(
-            color="indianred", label="all mean", ax=ax
-        )
-        ax.legend(bbox_to_anchor=(1.04, 1), fontsize=12).set_title("")
-        ax.set_title(f"cluster: {clust+1}")
-        ax.set_ylim([-100,100])
-    plt.show();
+    ts = ot_ts_prep(seated_data, window=window)
+    X = ts.fillna(0).T
+    model = clustermodel(n_clusters=n_clusters,
+                         random_state=random_state,
+                         **clusterkwargs)
+    X["labels"] = model.fit_predict(X)+1
+    return X
 
+CLUSTDATA = cluster_analysis()
 
-def compare_weekdays(data, title):
+def plot_clusters(data=CLUSTDATA.copy()):
+    data[data == 0] = np.nan
     fig, ax = plt.subplots(1, figsize=(15, 5))
-    days = {
-        0: "Monday",
-        1: "Tuesday",
-        2: "Wednesday",
-        3: "Thursday",
-        4: "Friday",
-        5: "Saturday",
-        6: "Sunday",
-    }
-    data["weekday"] = [days[i.weekday()] for i in data.index]
-    for v in days.values():
-        plotdata = (
-            data.loc[data["weekday"] == v, :].groupby(pd.Grouper(freq="M")).mean()
-        )
-        ax.plot(plotdata, label=v)
-    plt.ylabel("% change YoY")
-    plt.xlabel("Month", fontsize=20)
+    for k in sorted(data["labels"].unique()):
+        X = data.loc[data["labels"] == k, :].drop("labels", axis=1).mean()
+        X.T.plot(alpha=0.9, ax=ax, label=f"Cluster {k}")
+    dc = data.loc[['District of Columbia'], :].drop('labels',axis=1)
+    dc.T.plot(lw=5, color="indianred", label="Dist. of Col.", ax=ax)
+    data.drop('labels',axis=1).mean().T.plot(lw=5, ls=':', color='steelblue',
+                                              label='All data avg.',
+                                              ax=ax)
     plt.legend()
-    plt.title(title, fontsize=20)
-
-
-def barweekdays(data):
-    plotdata = data.groupby([pd.Grouper(freq="M"), "weekday"])["seated_diners"].mean()
-    plotdata = plotdata.unstack()
-    plotdata.index = plotdata.index.to_period("M")
-    plotdata = plotdata.loc[
-        :,
-        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    ]
-    plotdata.plot(kind="bar", legend=True, figsize=(15, 10))
-    plt.title("% YOY change by weekday (monthly avg)", fontsize=20)
-    plt.xlabel("Month", fontsize=20)
-    plt.ylabel("% change", fontsize=20)
-
-
-def plot_daily_hrs_dist(data,plotdir=PLOT_DIR):
-    fig = plt.figure(figsize=(15, 7))
-    weekcols = [f"{d.lower()}_hrs" for d in ["Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"]]
-    _ = [sns.kdeplot(data.loc[:, col], label=col[:-4]) for col in weekcols]
-    plt.legend()
-    plt.xlabel("daily hrs", fontsize=20)
-    title = f"Dist of hours open by day of week as of {date.today()}"
-    plt.title(title, fontsize=20)
-    plt.savefig(Path(PLOT_DIR,title+'__KDplot.png'), bbox='tight')
     plt.show();
 
+outclust = widgets.Output()
+def plot_single_cluster(k, data=CLUSTDATA.copy()):
+    data[data == 0] = np.nan
+    with outclust:
+        fig, ax = plt.subplots(1, figsize=(15, 5))
+        X = data.loc[data['labels']==k, :].drop('labels', axis=1)
+        X.T.plot(alpha=0.6, ax=ax)
+        dc = data.loc[['District of Columbia'],:].drop('labels', axis=1)
+        dc.T.plot(lw=5, color="indianred", label="Dist. of Col.", ax=ax)
+        data.drop('labels', axis=1).mean().T.plot(lw=5, ls=':', color='steelblue',
+                                                  label='All data avg.',
+                                                  ax=ax)
+        ax.legend(bbox_to_anchor=(1.04, 1), fontsize=12).set_title("")
+        plt.legend()
+        outclust.clear_output()
+        plt.show()
 
-def violin_plot_daily_hrs(data):
-    fig, ax = plt.subplots(1, figsize=(15, 7))
-    X = data.melt(
-        value_vars=[
-            f"{d.lower()}_hrs" for d in ["Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"]
-        ]
-    )
-    X["variable"] = X["variable"].str[:-4]
-    ax = sns.violinplot(x="variable", y="value", data=X)
-    plt.xlabel("Day", fontsize=20)
-    title = f"Dist of hours open by day of week as of {date.today()}"
-    plt.title(title, fontsize=20)
-    plt.savefig(Path(PLOT_DIR, title + '__violin.png'), bbox='tight')
-    plt.show();
+cluster_widget = widgets.Dropdown(
+    options=sorted(CLUSTDATA['labels'].unique()),
+    description='Cluster',
+    disabled=False)
+
+def on_cluster_change(change):
+    plot_single_cluster(k=change['new'])
+
+cluster_widget.observe(on_cluster_change, 'value')
