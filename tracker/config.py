@@ -7,7 +7,7 @@ if colab:
     ENV_PATH = Path("/content/drive/secrets", ".env")
     ROOT = Path("/content/drive/Shared drives/WDCEP/COVID-tracker")
 else:
-    ROOT = Path(os.environ['NLT'],"WDCEP-COVID-tracker")
+#     ROOT = Path(os.environ['NLT'],"WDCEP-COVID-tracker")
     ROOT = Path('..','..')
     ENV_PATH = Path(ROOT, "tracker", ".env")
 
