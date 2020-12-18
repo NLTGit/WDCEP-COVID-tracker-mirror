@@ -1,0 +1,17 @@
+-e .
+
+python-dotenv==0.14.0
+requests==2.24.0
+tqdm==4.49.0
+pandas==1.1.2
+seaborn==0.11.0
+geopandas==0.8.1
+contextily==1.0.0
+mapclassify==2.3.0
+dill
+pygeos
+descartes
+ghp-import
+jupyter-book
+ipywidgets
+ipympl
